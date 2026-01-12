@@ -38,6 +38,7 @@ function getAvatarFromIDB(party, username) {
 
 // Fonction de connexion
 function handleLogin() {
+    const role = document.querySelector('input[name="role"]:checked').value;
     const party = document.getElementById('login-party').value.trim();
     const username = document.getElementById('login-username').value.trim();
     const avatarFile = document.getElementById('login-avatar').files[0];
@@ -64,10 +65,13 @@ function handleLogin() {
             // Créer le personnage si non trouvé
             user = {
                 username: username,
-                role: 'player',
+                role: role,
                 createdAt: new Date().toISOString()
             };
             users.push(user);
+        } else {
+            // Mettre à jour le rôle si changé
+            user.role = role;
         }
         
         // Sauvegarder l'avatar dans IndexedDB
@@ -79,8 +83,12 @@ function handleLogin() {
             sessionStorage.setItem('jdr_current_user', JSON.stringify(user));
             sessionStorage.setItem('jdr_current_party', party);
             
-            // Rediriger vers la page GM
-            window.location.href = 'gm.html';
+            // Rediriger vers la page appropriée
+            if (role === 'gm') {
+                window.location.href = 'gm.html';
+            } else {
+                window.location.href = 'player.html';
+            }
         }).catch(err => {
             console.error('Erreur sauvegarde avatar:', err);
             showError('login-error', 'Erreur lors de la sauvegarde de l\'avatar');

@@ -6,6 +6,10 @@ if (!currentUser || !currentParty) {
     window.location.href = 'index.html';
 }
 
+if (currentUser.role !== 'gm') {
+    window.location.href = 'player.html';
+}
+
 // Afficher les informations du GM
 document.getElementById('username-display').textContent = `🎭 ${currentUser.username}`;
 
