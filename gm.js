@@ -1,6 +1,7 @@
 // Vérifier l'authentification
 const currentUser = JSON.parse(sessionStorage.getItem('jdr_current_user'));
-if (!currentUser || currentUser.role !== 'gm') {
+const currentParty = sessionStorage.getItem('jdr_current_party');
+if (!currentUser || currentUser.role !== 'gm' || !currentParty) {
     window.location.href = 'index.html';
 }
 
@@ -21,7 +22,7 @@ let dragOffset = { x: 0, y: 0 };
 
 // Initialiser ou charger l'état du jeu
 function initGameState() {
-    let gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    let gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
     
     if (!gameState.tokens) {
         gameState.tokens = [];
@@ -33,7 +34,7 @@ function initGameState() {
         gameState.gridSize = 50;
     }
     
-    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
     return gameState;
 }
 
@@ -57,8 +58,8 @@ function loadGameState() {
 
 // Sauvegarder l'état du jeu
 function saveGameState() {
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
-    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
 }
 
 // Dessiner la grille et les tokens
@@ -95,7 +96,7 @@ function drawGrid() {
     }
 
     // Dessiner tous les tokens
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
     const tokens = gameState.tokens || [];
     
     tokens.forEach(token => {
@@ -130,9 +131,9 @@ document.getElementById('bgImage').addEventListener('change', (e) => {
         reader.onload = (event) => {
             bgImage = new Image();
             bgImage.onload = () => {
-                const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+                const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
                 gameState.bgImage = event.target.result;
-                localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+                localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
                 drawGrid();
             };
             bgImage.src = event.target.result;
@@ -185,7 +186,7 @@ function addMonsterToLibrary(img, src, name) {
 
 // Charger et afficher les joueurs
 function loadPlayers() {
-    const users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
+    const users = JSON.parse(localStorage.getItem(`jdr_users_${currentParty}`) || '[]');
     const players = users.filter(u => u.role === 'player');
     
     const playerList = document.getElementById('playerList');
@@ -204,10 +205,10 @@ function loadPlayers() {
 
 // Ajouter les joueurs à la carte
 function addPlayersToMap() {
-    const users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
+    const users = JSON.parse(localStorage.getItem(`jdr_users_${currentParty}`) || '[]');
     const players = users.filter(u => u.role === 'player');
     
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
     let tokens = gameState.tokens || [];
     
     // Retirer les anciens tokens de joueurs
@@ -230,7 +231,7 @@ function addPlayersToMap() {
     });
     
     gameState.tokens = tokens;
-    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
     drawGrid();
     
     alert(`${players.length} joueur(s) ajouté(s) à la carte!`);
@@ -253,13 +254,13 @@ canvas.addEventListener('mousedown', (e) => {
         });
         
         gameState.tokens = tokens;
-        localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+        localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
         drawGrid();
         return;
     }
 
     // Sélectionner un token existant
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
     const tokens = gameState.tokens || [];
     
     for (let i = tokens.length - 1; i >= 0; i--) {
@@ -304,7 +305,7 @@ canvas.addEventListener('mouseup', (e) => {
         x = Math.round(x / gridSize) * gridSize;
         y = Math.round(y / gridSize) * gridSize;
 
-        const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+        const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
         let tokens = gameState.tokens || [];
         
         // Si c'est un token existant, le mettre à jour
@@ -325,7 +326,7 @@ canvas.addEventListener('mouseup', (e) => {
         });
 
         gameState.tokens = tokens;
-        localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+        localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
         
         draggingToken = null;
         dragOffset = { x: 0, y: 0 };
@@ -354,7 +355,7 @@ function clearMap() {
             bgImage: null,
             gridSize: 50
         };
-        localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+        localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
         bgImage = null;
         gridSize = 50;
         document.getElementById('gridSize').value = 50;
@@ -365,7 +366,7 @@ function clearMap() {
 // Réinitialiser les joueurs
 function resetPlayers() {
     if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les joueurs ? Cela supprimera tous les personnages.')) {
-        localStorage.removeItem('jdr_users');
+        localStorage.removeItem(`jdr_users_${currentParty}`);
         document.getElementById('playerList').innerHTML = '';
         alert('Joueurs réinitialisés.');
     }

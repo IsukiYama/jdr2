@@ -2,6 +2,7 @@
 
 // Fonction de connexion
 function handleLogin() {
+    const party = document.getElementById('login-party').value.trim();
     const username = document.getElementById('login-username').value.trim();
     const role = document.getElementById('login-role').value;
     const avatarFile = document.getElementById('login-avatar').files[0];
@@ -9,13 +10,14 @@ function handleLogin() {
     
     errorDiv.classList.remove('show');
     
-    if (!username || !role || !avatarFile) {
+    if (!party || !username || !role || !avatarFile) {
         showError('login-error', 'Veuillez remplir tous les champs');
         return;
     }
     
-    // Récupérer les utilisateurs
-    let users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
+    // Récupérer les utilisateurs de la partie
+    const usersKey = `jdr_users_${party}`;
+    let users = JSON.parse(localStorage.getItem(usersKey) || '[]');
     
     // Lire l'avatar uploadé
     const reader = new FileReader();
@@ -37,11 +39,11 @@ function handleLogin() {
             user.avatar = uploadedAvatar;
         }
         
-        localStorage.setItem('jdr_users', JSON.stringify(users));
+        localStorage.setItem(usersKey, JSON.stringify(users));
         
-        // Sauvegarder la session avec l'avatar
-        const sessionUser = { ...user, avatar: uploadedAvatar };
-        sessionStorage.setItem('jdr_current_user', JSON.stringify(sessionUser));
+        // Sauvegarder la session
+        sessionStorage.setItem('jdr_current_user', JSON.stringify(user));
+        sessionStorage.setItem('jdr_current_party', party);
         
         // Rediriger vers la page appropriée
         if (user.role === 'gm') {

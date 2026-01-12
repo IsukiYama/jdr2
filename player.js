@@ -1,6 +1,7 @@
 // Vérifier l'authentification
 const currentUser = JSON.parse(sessionStorage.getItem('jdr_current_user'));
-if (!currentUser || currentUser.role !== 'player') {
+const currentParty = sessionStorage.getItem('jdr_current_party');
+if (!currentUser || currentUser.role !== 'player' || !currentParty) {
     window.location.href = 'index.html';
 }
 
