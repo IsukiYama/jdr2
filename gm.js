@@ -8,6 +8,22 @@ if (!currentUser || currentUser.role !== 'gm' || !currentParty) {
 // Afficher les informations du GM
 document.getElementById('username-display').textContent = `🎭 ${currentUser.username} (GM)`;
 
+// Fonction pour récupérer l'avatar depuis IndexedDB
+function getAvatarFromIDB(party, username) {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(`jdr_avatars_${party}`, 1);
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+            const transaction = db.transaction(['avatars'], 'readonly');
+            const store = transaction.objectStore('avatars');
+            const getRequest = store.get(username);
+            getRequest.onsuccess = () => resolve(getRequest.result);
+            getRequest.onerror = () => reject(getRequest.error);
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
 // Canal de diffusion pour les mises à jour en temps réel
 const broadcastChannel = new BroadcastChannel(`jdr_party_${currentParty}`);
 const canvas = document.getElementById('gridCanvas');
@@ -190,22 +206,27 @@ function addMonsterToLibrary(img, src, name) {
 }
 
 // Charger et afficher les joueurs
-function loadPlayers() {
+async function loadPlayers() {
     const users = JSON.parse(localStorage.getItem(`jdr_users_${currentParty}`) || '[]');
     const players = users.filter(u => u.role === 'player');
     
     const playerList = document.getElementById('playerList');
     playerList.innerHTML = '';
     
-    players.forEach(player => {
-        const div = document.createElement('div');
-        div.className = 'player-item';
-        div.innerHTML = `
-            <img src="${player.avatar}" alt="${player.username}">
-            <span>${player.username}</span>
-        `;
-        playerList.appendChild(div);
-    });
+    for (const player of players) {
+        try {
+            const avatar = await getAvatarFromIDB(currentParty, player.username) || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='; // transparent pixel
+            const div = document.createElement('div');
+            div.className = 'player-item';
+            div.innerHTML = `
+                <img src="${avatar}" alt="${player.username}">
+                <span>${player.username}</span>
+            `;
+            playerList.appendChild(div);
+        } catch (e) {
+            console.error('Erreur chargement avatar', e);
+        }
+    }
 }
 
 // Ajouter les joueurs à la carte
@@ -219,21 +240,38 @@ function addPlayersToMap() {
     // Retirer les anciens tokens de joueurs
     tokens = tokens.filter(t => t.type !== 'player');
     
+// Ajouter les joueurs à la carte
+async function addPlayersToMap() {
+    const users = JSON.parse(localStorage.getItem(`jdr_users_${currentParty}`) || '[]');
+    const players = users.filter(u => u.role === 'player');
+    
+    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+    let tokens = gameState.tokens || [];
+    
+    // Retirer les anciens tokens de joueurs
+    tokens = tokens.filter(t => t.type !== 'player');
+    
     // Ajouter les joueurs en ligne
-    players.forEach((player, index) => {
+    for (let index = 0; index < players.length; index++) {
+        const player = players[index];
         const x = 50 + (index * gridSize * 2);
         const y = 50;
         
-        tokens.push({
-            username: player.username,
-            avatar: player.avatar,
-            x: x,
-            y: y,
-            width: gridSize,
-            height: gridSize,
-            type: 'player'
-        });
-    });
+        try {
+            const avatar = await getAvatarFromIDB(currentParty, player.username) || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+            tokens.push({
+                username: player.username,
+                avatar: avatar,
+                x: x,
+                y: y,
+                width: gridSize,
+                height: gridSize,
+                type: 'player'
+            });
+        } catch (e) {
+            console.error('Erreur chargement avatar joueur', e);
+        }
+    }
     
     gameState.tokens = tokens;
     localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));

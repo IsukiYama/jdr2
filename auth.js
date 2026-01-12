@@ -1,5 +1,43 @@
 
 
+// Fonction pour sauvegarder l'avatar dans IndexedDB
+function saveAvatarToIDB(party, username, avatar) {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(`jdr_avatars_${party}`, 1);
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('avatars')) {
+                db.createObjectStore('avatars');
+            }
+        };
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+            const transaction = db.transaction(['avatars'], 'readwrite');
+            const store = transaction.objectStore('avatars');
+            store.put(avatar, username);
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+// Fonction pour récupérer l'avatar depuis IndexedDB
+function getAvatarFromIDB(party, username) {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(`jdr_avatars_${party}`, 1);
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+            const transaction = db.transaction(['avatars'], 'readonly');
+            const store = transaction.objectStore('avatars');
+            const getRequest = store.get(username);
+            getRequest.onsuccess = () => resolve(getRequest.result);
+            getRequest.onerror = () => reject(getRequest.error);
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
 // Fonction de connexion
 function handleLogin() {
     const party = document.getElementById('login-party').value.trim();
@@ -30,13 +68,14 @@ function handleLogin() {
             user = {
                 username: username,
                 role: role,
-                avatar: uploadedAvatar,
                 createdAt: new Date().toISOString()
             };
             users.push(user);
+            // Sauvegarder l'avatar dans IndexedDB
+            saveAvatarToIDB(party, username, uploadedAvatar).catch(console.error);
         } else {
             // Mettre à jour la figurine
-            user.avatar = uploadedAvatar;
+            saveAvatarToIDB(party, username, uploadedAvatar).catch(console.error);
         }
         
         try {
