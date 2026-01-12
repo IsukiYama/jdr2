@@ -436,3 +436,5 @@ function logout() {
 // Initialisation
 loadGameState();
 loadPlayers();
+
+// Fin du fichier
