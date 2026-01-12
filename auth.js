@@ -99,7 +99,7 @@ function handleLogin() {
         if (user.role === 'gm') {
             window.location.href = 'gm.html';
         } else {
-            window.location.href = 'player.html';
+            window.location.href = 'gm.html';
         }
     };
     reader.readAsDataURL(avatarFile);

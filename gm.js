@@ -6,7 +6,13 @@ if (!currentUser || currentUser.role !== 'gm' || !currentParty) {
 }
 
 // Afficher les informations du GM
-document.getElementById('username-display').textContent = `🎭 ${currentUser.username} (GM)`;
+document.getElementById('username-display').textContent = `🎭 ${currentUser.username} (${currentUser.role === 'gm' ? 'GM' : 'Joueur'})`;
+
+// Masquer les contrôles selon le rôle
+if (currentUser.role === 'player') {
+    document.querySelector('.controls').style.display = 'none';
+    document.getElementById('playerControls').style.display = 'block';
+}
 
 // Fonction pour récupérer l'avatar depuis IndexedDB
 function getAvatarFromIDB(party, username) {
@@ -286,6 +292,44 @@ async function addPlayersToMap() {
     drawGrid();
     
     alert(`${players.length} joueur(s) ajouté(s) à la carte!`);
+}
+
+// Ajouter mon personnage (pour joueurs)
+function addMyCharacter() {
+    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+    let tokens = gameState.tokens || [];
+    
+    // Vérifier si déjà ajouté
+    if (tokens.some(t => t.username === currentUser.username)) {
+        alert('Votre personnage est déjà sur la carte.');
+        return;
+    }
+    
+    // Positionner à un endroit libre
+    let x = 50, y = 50;
+    let attempts = 0;
+    while (tokens.some(t => Math.abs(t.x - x) < gridSize && Math.abs(t.y - y) < gridSize) && attempts < 100) {
+        x = Math.floor(Math.random() * (canvas.width - gridSize));
+        y = Math.floor(Math.random() * (canvas.height - gridSize));
+        attempts++;
+    }
+    
+    tokens.push({
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+        x: x,
+        y: y,
+        width: gridSize,
+        height: gridSize,
+        type: 'player'
+    });
+    
+    gameState.tokens = tokens;
+    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
+    broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
+    drawGrid();
+    
+    alert('Votre personnage a été ajouté à la carte!');
 }
 
 // Gestion du drag and drop
