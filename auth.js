@@ -15,17 +15,30 @@ function handleLogin() {
     }
     
     // Récupérer les utilisateurs
-    const users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
+    let users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
     
     // Lire l'avatar uploadé
     const reader = new FileReader();
     reader.onload = (event) => {
         const uploadedAvatar = event.target.result;
-        const user = users.find(u => u.username === username && u.role === role && u.avatar === uploadedAvatar);
+        let user = users.find(u => u.username === username && u.role === role);
         
         if (!user) {
-            showError('login-error', 'Personnage non trouvé ou figurine incorrecte');
-            return;
+            // Créer le personnage si non trouvé
+            user = {
+                username: username,
+                role: role,
+                avatar: uploadedAvatar,
+                createdAt: new Date().toISOString()
+            };
+            users.push(user);
+            localStorage.setItem('jdr_users', JSON.stringify(users));
+        } else {
+            // Vérifier la figurine
+            if (user.avatar !== uploadedAvatar) {
+                showError('login-error', 'Figurine incorrecte pour ce personnage');
+                return;
+            }
         }
         
         // Sauvegarder la session
