@@ -1,7 +1,7 @@
 // Vérifier l'authentification
 const currentUser = JSON.parse(sessionStorage.getItem('jdr_current_user'));
 if (!currentUser || currentUser.role !== 'gm') {
-    window.location.href = 'login.html';
+    window.location.href = 'index.html';
 }
 
 // Afficher les informations du GM
@@ -366,7 +366,7 @@ function clearMap() {
 function logout() {
     if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
         sessionStorage.removeItem('jdr_current_user');
-        window.location.href = 'login.html';
+        window.location.href = 'index.html';
     }
 }
 
