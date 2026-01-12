@@ -32,14 +32,12 @@ function handleLogin() {
                 createdAt: new Date().toISOString()
             };
             users.push(user);
-            localStorage.setItem('jdr_users', JSON.stringify(users));
         } else {
-            // Vérifier la figurine
-            if (user.avatar !== uploadedAvatar) {
-                showError('login-error', 'Figurine incorrecte pour ce personnage');
-                return;
-            }
+            // Mettre à jour la figurine
+            user.avatar = uploadedAvatar;
         }
+        
+        localStorage.setItem('jdr_users', JSON.stringify(users));
         
         // Sauvegarder la session
         sessionStorage.setItem('jdr_current_user', JSON.stringify(user));
