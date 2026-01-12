@@ -1,5 +1,3 @@
-
-
 // Fonction pour sauvegarder l'avatar dans IndexedDB
 function saveAvatarToIDB(party, username, avatar) {
     return new Promise((resolve, reject) => {
@@ -17,22 +15,6 @@ function saveAvatarToIDB(party, username, avatar) {
             store.put(avatar, username);
             transaction.oncomplete = () => resolve();
             transaction.onerror = () => reject(transaction.error);
-        };
-        request.onerror = () => reject(request.error);
-    });
-}
-
-// Fonction pour récupérer l'avatar depuis IndexedDB
-function getAvatarFromIDB(party, username) {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(`jdr_avatars_${party}`, 1);
-        request.onsuccess = (event) => {
-            const db = event.target.result;
-            const transaction = db.transaction(['avatars'], 'readonly');
-            const store = transaction.objectStore('avatars');
-            const getRequest = store.get(username);
-            getRequest.onsuccess = () => resolve(getRequest.result);
-            getRequest.onerror = () => reject(getRequest.error);
         };
         request.onerror = () => reject(request.error);
     });
@@ -70,36 +52,23 @@ function handleLogin() {
                 createdAt: new Date().toISOString()
             };
             users.push(user);
-            // Sauvegarder l'avatar dans IndexedDB
-            saveAvatarToIDB(party, username, uploadedAvatar).catch(console.error);
-        } else {
-            // Mettre à jour la figurine
-            saveAvatarToIDB(party, username, uploadedAvatar).catch(console.error);
         }
         
-        try {
+        // Sauvegarder l'avatar dans IndexedDB
+        saveAvatarToIDB(party, username, uploadedAvatar).then(() => {
+            // Sauvegarder les utilisateurs
             localStorage.setItem(usersKey, JSON.stringify(users));
-        } catch (e) {
-            if (e.name === 'QuotaExceededError') {
-                alert('Quota de stockage dépassé. Utilisez des images PNG plus petites.');
-                // Supprimer les avatars pour économiser de l'espace
-                users.forEach(u => delete u.avatar);
-                localStorage.setItem(usersKey, JSON.stringify(users));
-            } else {
-                throw e;
-            }
-        }
-        
-        // Sauvegarder la session
-        sessionStorage.setItem('jdr_current_user', JSON.stringify(user));
-        sessionStorage.setItem('jdr_current_party', party);
-        
-        // Rediriger vers la page appropriée
-        if (user.role === 'gm') {
+            
+            // Sauvegarder la session
+            sessionStorage.setItem('jdr_current_user', JSON.stringify(user));
+            sessionStorage.setItem('jdr_current_party', party);
+            
+            // Rediriger vers la page GM
             window.location.href = 'gm.html';
-        } else {
-            window.location.href = 'gm.html';
-        }
+        }).catch(err => {
+            console.error('Erreur sauvegarde avatar:', err);
+            showError('login-error', 'Erreur lors de la sauvegarde de l\'avatar');
+        });
     };
     reader.readAsDataURL(avatarFile);
 }
@@ -110,4 +79,3 @@ function showError(elementId, message) {
     errorDiv.textContent = message;
     errorDiv.classList.add('show');
 }
-

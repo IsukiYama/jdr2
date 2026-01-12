@@ -1,50 +1,17 @@
 // Vérifier l'authentification
 const currentUser = JSON.parse(sessionStorage.getItem('jdr_current_user'));
-const currentParty = sessionStorage.getItem('jdr_current_party');
-if (!currentUser || !currentParty) {
-    window.location.href = 'index.html';
+if (!currentUser || currentUser.role !== 'gm') {
+    window.location.href = 'login.html';
 }
 
-// Afficher les informations de l'utilisateur
-document.getElementById('username-display').textContent = `🎭 ${currentUser.username}`;
+// Afficher les informations du GM
+document.getElementById('username-display').textContent = `🎭 ${currentUser.username} (GM)`;
 
-// Fonction pour récupérer l'avatar depuis IndexedDB
-function getAvatarFromIDB(party, username) {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(`jdr_avatars_${party}`, 1);
-        request.onsuccess = (event) => {
-            const db = event.target.result;
-            const transaction = db.transaction(['avatars'], 'readonly');
-            const store = transaction.objectStore('avatars');
-            const getRequest = store.get(username);
-            getRequest.onsuccess = () => resolve(getRequest.result);
-            getRequest.onerror = () => reject(getRequest.error);
-        };
-        request.onerror = () => reject(request.error);
-    });
-}
-
-// Canal de diffusion pour les mises à jour en temps réel
-const broadcastChannel = new BroadcastChannel(`jdr_party_${currentParty}`);
+// Configuration du canvas
 const canvas = document.getElementById('gridCanvas');
 const ctx = canvas.getContext('2d');
-
-// Redimensionner le canvas
-function resizeCanvas() {
-    // Attendre que le layout soit complet
-    setTimeout(() => {
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-        console.log('Canvas size:', canvas.width, canvas.height);
-        drawGrid();
-    }, 100);
-}
-
-window.addEventListener('resize', resizeCanvas);
-window.addEventListener('load', () => {
-    resizeCanvas();
-    loadGameState();
-});
+canvas.width = 900;
+canvas.height = 650;
 
 let bgImage = null;
 let gridSize = 50;
@@ -54,7 +21,7 @@ let dragOffset = { x: 0, y: 0 };
 
 // Initialiser ou charger l'état du jeu
 function initGameState() {
-    let gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+    let gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
     
     if (!gameState.tokens) {
         gameState.tokens = [];
@@ -66,7 +33,7 @@ function initGameState() {
         gameState.gridSize = 50;
     }
     
-    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
+    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
     return gameState;
 }
 
@@ -82,7 +49,7 @@ function loadGameState() {
     }
     
     // Charger la taille de grille
-    gridSize = Math.max(10, gameState.gridSize || 50);
+    gridSize = gameState.gridSize;
     document.getElementById('gridSize').value = gridSize;
     
     drawGrid();
@@ -90,10 +57,8 @@ function loadGameState() {
 
 // Sauvegarder l'état du jeu
 function saveGameState() {
-    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
-    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
-    // Diffuser la mise à jour
-    broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
+    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
 }
 
 // Dessiner la grille et les tokens
@@ -105,15 +70,15 @@ function drawGrid() {
         ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
     } else {
         const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, '#4a3a2a');
-        gradient.addColorStop(1, '#3a2a1a');
+        gradient.addColorStop(0, '#3a2a1a');
+        gradient.addColorStop(1, '#2a1a0a');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     // Grille
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.8)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
+    ctx.lineWidth = 2;
 
     for (let x = 0; x <= canvas.width; x += gridSize) {
         ctx.beginPath();
@@ -130,7 +95,7 @@ function drawGrid() {
     }
 
     // Dessiner tous les tokens
-    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
     const tokens = gameState.tokens || [];
     
     tokens.forEach(token => {
@@ -165,12 +130,10 @@ document.getElementById('bgImage').addEventListener('change', (e) => {
         reader.onload = (event) => {
             bgImage = new Image();
             bgImage.onload = () => {
-                const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+                const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
                 gameState.bgImage = event.target.result;
-                localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
+                localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
                 drawGrid();
-                // Diffuser la mise à jour
-                broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
             };
             bgImage.src = event.target.result;
         };
@@ -221,114 +184,89 @@ function addMonsterToLibrary(img, src, name) {
 }
 
 // Charger et afficher les joueurs
-async function loadPlayers() {
-    const users = JSON.parse(localStorage.getItem(`jdr_users_${currentParty}`) || '[]');
+function loadPlayers() {
+    const users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
+    const players = users.filter(u => u.role === 'player');
     
     const playerList = document.getElementById('playerList');
     playerList.innerHTML = '';
     
-    for (const user of users) {
-        try {
-            const avatar = await getAvatarFromIDB(currentParty, user.username) || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='; // transparent pixel
-            const div = document.createElement('div');
-            div.className = 'player-item';
-            div.innerHTML = `
-                <img src="${avatar}" alt="${user.username}">
-                <span>${user.username}</span>
-            `;
-            playerList.appendChild(div);
-        } catch (e) {
-            console.error('Erreur chargement avatar', e);
-        }
+    if (players.length === 0) {
+        playerList.innerHTML = '<p style="color: #d4af37; font-size: 0.9em; text-align: center;">Aucun joueur inscrit</p>';
+        return;
     }
+    
+    players.forEach(player => {
+        const isOnline = player.isOnline || false;
+        const div = document.createElement('div');
+        div.className = 'player-item';
+        div.style.borderColor = isOnline ? '#00ff00' : '#8b4513';
+        div.innerHTML = `
+            <img src="${player.avatar}" alt="${player.username}">
+            <span>${player.username}</span>
+            <span style="color: ${isOnline ? '#00ff00' : '#888'}; margin-left: auto; font-size: 1.2em;">●</span>
+        `;
+        playerList.appendChild(div);
+    });
+    
+    // Mettre à jour les statistiques
+    updateStats();
+}
+
+// Mettre à jour les statistiques
+function updateStats() {
+    const users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
+    const players = users.filter(u => u.role === 'player');
+    const onlinePlayers = players.filter(p => p.isOnline);
+    
+    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    const tokens = gameState.tokens || [];
+    const playerTokens = tokens.filter(t => t.type === 'player');
+    const monsterTokens = tokens.filter(t => t.type === 'monster');
+    
+    const statsBox = document.getElementById('stats');
+    statsBox.innerHTML = `
+        <div style="color: #d4af37; font-size: 0.9em; line-height: 1.8;">
+            <p><strong style="color: #ffd700;">👥 Joueurs inscrits:</strong> ${players.length}</p>
+            <p><strong style="color: #00ff00;">🟢 En ligne:</strong> ${onlinePlayers.length}</p>
+            <p><strong style="color: #ffd700;">🗡️ Sur la carte:</strong> ${playerTokens.length}</p>
+            <p><strong style="color: #ff6b6b;">👹 Monstres:</strong> ${monsterTokens.length}</p>
+        </div>
+    `;
 }
 
 // Ajouter les joueurs à la carte
 function addPlayersToMap() {
-    const users = JSON.parse(localStorage.getItem(`jdr_users_${currentParty}`) || '[]');
+    const users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
     const players = users.filter(u => u.role === 'player');
     
-    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
-    let tokens = gameState.tokens || [];
-    
-    // Retirer les anciens tokens de joueurs
-    tokens = tokens.filter(t => t.type !== 'player');
-    
-// Ajouter les joueurs à la carte
-async function addPlayersToMap() {
-    const users = JSON.parse(localStorage.getItem(`jdr_users_${currentParty}`) || '[]');
-    
-    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
     let tokens = gameState.tokens || [];
     
     // Retirer les anciens tokens de joueurs
     tokens = tokens.filter(t => t.type !== 'player');
     
     // Ajouter les joueurs en ligne
-    for (let index = 0; index < users.length; index++) {
-        const user = users[index];
+    players.forEach((player, index) => {
         const x = 50 + (index * gridSize * 2);
         const y = 50;
         
-        try {
-            const avatar = await getAvatarFromIDB(currentParty, user.username) || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
-            tokens.push({
-                username: user.username,
-                avatar: avatar,
-                x: x,
-                y: y,
-                width: gridSize,
-                height: gridSize,
-                type: 'player'
-            });
-        } catch (e) {
-            console.error('Erreur chargement avatar joueur', e);
-        }
-    }
-    
-    gameState.tokens = tokens;
-    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
-    drawGrid();
-    
-    alert(`${users.length} joueur(s) ajouté(s) à la carte!`);
-}
-
-// Ajouter mon personnage (pour joueurs)
-function addMyCharacter() {
-    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
-    let tokens = gameState.tokens || [];
-    
-    // Vérifier si déjà ajouté
-    if (tokens.some(t => t.username === currentUser.username)) {
-        alert('Votre personnage est déjà sur la carte.');
-        return;
-    }
-    
-    // Positionner à un endroit libre
-    let x = 50, y = 50;
-    let attempts = 0;
-    while (tokens.some(t => Math.abs(t.x - x) < gridSize && Math.abs(t.y - y) < gridSize) && attempts < 100) {
-        x = Math.floor(Math.random() * (canvas.width - gridSize));
-        y = Math.floor(Math.random() * (canvas.height - gridSize));
-        attempts++;
-    }
-    
-    tokens.push({
-        username: currentUser.username,
-        avatar: currentUser.avatar,
-        x: x,
-        y: y,
-        width: gridSize,
-        height: gridSize,
-        type: 'player'
+        tokens.push({
+            username: player.username,
+            avatar: player.avatar,
+            x: x,
+            y: y,
+            width: gridSize,
+            height: gridSize,
+            type: 'player'
+        });
     });
     
     gameState.tokens = tokens;
-    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
-    broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
+    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
     drawGrid();
     
-    alert('Votre personnage a été ajouté à la carte!');
+    alert(`${players.length} joueur(s) ajouté(s) à la carte!`);
 }
 
 // Gestion du drag and drop
@@ -348,13 +286,13 @@ canvas.addEventListener('mousedown', (e) => {
         });
         
         gameState.tokens = tokens;
-        localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
+        localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
         drawGrid();
         return;
     }
 
     // Sélectionner un token existant
-    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
     const tokens = gameState.tokens || [];
     
     for (let i = tokens.length - 1; i >= 0; i--) {
@@ -399,7 +337,7 @@ canvas.addEventListener('mouseup', (e) => {
         x = Math.round(x / gridSize) * gridSize;
         y = Math.round(y / gridSize) * gridSize;
 
-        const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+        const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
         let tokens = gameState.tokens || [];
         
         // Si c'est un token existant, le mettre à jour
@@ -420,7 +358,7 @@ canvas.addEventListener('mouseup', (e) => {
         });
 
         gameState.tokens = tokens;
-        localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
+        localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
         
         draggingToken = null;
         dragOffset = { x: 0, y: 0 };
@@ -434,14 +372,11 @@ canvas.addEventListener('contextmenu', (e) => {
 
 // Changer la taille de grille
 document.getElementById('gridSize').addEventListener('change', (e) => {
-    gridSize = Math.max(10, parseInt(e.target.value) || 50);
-    document.getElementById('gridSize').value = gridSize;
-    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+    gridSize = parseInt(e.target.value);
+    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
     gameState.gridSize = gridSize;
-    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
+    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
     drawGrid();
-    // Diffuser la mise à jour
-    broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
 });
 
 // Réinitialiser la carte
@@ -452,22 +387,11 @@ function clearMap() {
             bgImage: null,
             gridSize: 50
         };
-        localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
+        localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
         bgImage = null;
         gridSize = 50;
         document.getElementById('gridSize').value = 50;
         drawGrid();
-        // Diffuser la mise à jour
-        broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
-    }
-}
-
-// Réinitialiser les joueurs
-function resetPlayers() {
-    if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les joueurs ? Cela supprimera tous les personnages.')) {
-        localStorage.removeItem(`jdr_users_${currentParty}`);
-        document.getElementById('playerList').innerHTML = '';
-        alert('Joueurs réinitialisés.');
     }
 }
 
@@ -475,12 +399,16 @@ function resetPlayers() {
 function logout() {
     if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
         sessionStorage.removeItem('jdr_current_user');
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
     }
 }
+
+// Auto-actualisation pour voir les changements en temps réel
+setInterval(() => {
+    loadPlayers();
+    drawGrid();
+}, 2000);
 
 // Initialisation
 loadGameState();
 loadPlayers();
-
-// Fin du fichier
