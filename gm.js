@@ -8,7 +8,8 @@ if (!currentUser || currentUser.role !== 'gm' || !currentParty) {
 // Afficher les informations du GM
 document.getElementById('username-display').textContent = `🎭 ${currentUser.username} (GM)`;
 
-// Configuration du canvas
+// Canal de diffusion pour les mises à jour en temps réel
+const broadcastChannel = new BroadcastChannel(`jdr_party_${currentParty}`);
 const canvas = document.getElementById('gridCanvas');
 const ctx = canvas.getContext('2d');
 canvas.width = 900;
@@ -60,6 +61,8 @@ function loadGameState() {
 function saveGameState() {
     const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
     localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
+    // Diffuser la mise à jour
+    broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
 }
 
 // Dessiner la grille et les tokens
@@ -135,6 +138,8 @@ document.getElementById('bgImage').addEventListener('change', (e) => {
                 gameState.bgImage = event.target.result;
                 localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
                 drawGrid();
+                // Diffuser la mise à jour
+                broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
             };
             bgImage.src = event.target.result;
         };
@@ -360,6 +365,8 @@ function clearMap() {
         gridSize = 50;
         document.getElementById('gridSize').value = 50;
         drawGrid();
+        // Diffuser la mise à jour
+        broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
     }
 }
 
