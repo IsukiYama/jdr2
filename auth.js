@@ -28,9 +28,13 @@ function handleLogin() {
             user = {
                 username: username,
                 role: role,
+                avatar: uploadedAvatar,
                 createdAt: new Date().toISOString()
             };
             users.push(user);
+        } else {
+            // Mettre à jour la figurine
+            user.avatar = uploadedAvatar;
         }
         
         localStorage.setItem('jdr_users', JSON.stringify(users));
