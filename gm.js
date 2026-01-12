@@ -1,11 +1,13 @@
 // Vérifier l'authentification
 const currentUser = JSON.parse(sessionStorage.getItem('jdr_current_user'));
-if (!currentUser || currentUser.role !== 'gm') {
-    window.location.href = 'login.html';
+const currentParty = sessionStorage.getItem('jdr_current_party');
+
+if (!currentUser || !currentParty) {
+    window.location.href = 'index.html';
 }
 
 // Afficher les informations du GM
-document.getElementById('username-display').textContent = `🎭 ${currentUser.username} (GM)`;
+document.getElementById('username-display').textContent = `🎭 ${currentUser.username}`;
 
 // Configuration du canvas
 const canvas = document.getElementById('gridCanvas');
@@ -19,9 +21,30 @@ let monsters = [];
 let draggingToken = null;
 let dragOffset = { x: 0, y: 0 };
 
-// Initialiser ou charger l'état du jeu
+// Fonction pour récupérer l'avatar depuis IndexedDB
+function getAvatarFromIDB(party, username) {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(`jdr_avatars_${party}`, 1);
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('avatars')) {
+                resolve(null);
+                return;
+            }
+            const transaction = db.transaction(['avatars'], 'readonly');
+            const store = transaction.objectStore('avatars');
+            const getRequest = store.get(username);
+            getRequest.onsuccess = () => resolve(getRequest.result);
+            getRequest.onerror = () => reject(getRequest.error);
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+// Initialiser ou charger l'état du jeu (par partie)
 function initGameState() {
-    let gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    const stateKey = `jdr_game_state_${currentParty}`;
+    let gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
     
     if (!gameState.tokens) {
         gameState.tokens = [];
@@ -33,7 +56,7 @@ function initGameState() {
         gameState.gridSize = 50;
     }
     
-    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+    localStorage.setItem(stateKey, JSON.stringify(gameState));
     return gameState;
 }
 
@@ -57,8 +80,9 @@ function loadGameState() {
 
 // Sauvegarder l'état du jeu
 function saveGameState() {
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
-    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+    const stateKey = `jdr_game_state_${currentParty}`;
+    const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
+    localStorage.setItem(stateKey, JSON.stringify(gameState));
 }
 
 // Dessiner la grille et les tokens
@@ -95,7 +119,8 @@ function drawGrid() {
     }
 
     // Dessiner tous les tokens
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    const stateKey = `jdr_game_state_${currentParty}`;
+    const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
     const tokens = gameState.tokens || [];
     
     tokens.forEach(token => {
@@ -130,9 +155,10 @@ document.getElementById('bgImage').addEventListener('change', (e) => {
         reader.onload = (event) => {
             bgImage = new Image();
             bgImage.onload = () => {
-                const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+                const stateKey = `jdr_game_state_${currentParty}`;
+                const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
                 gameState.bgImage = event.target.result;
-                localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+                localStorage.setItem(stateKey, JSON.stringify(gameState));
                 drawGrid();
             };
             bgImage.src = event.target.result;
@@ -184,8 +210,9 @@ function addMonsterToLibrary(img, src, name) {
 }
 
 // Charger et afficher les joueurs
-function loadPlayers() {
-    const users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
+async function loadPlayers() {
+    const usersKey = `jdr_users_${currentParty}`;
+    const users = JSON.parse(localStorage.getItem(usersKey) || '[]');
     const players = users.filter(u => u.role === 'player');
     
     const playerList = document.getElementById('playerList');
@@ -196,77 +223,113 @@ function loadPlayers() {
         return;
     }
     
-    players.forEach(player => {
-        const isOnline = player.isOnline || false;
+    for (const player of players) {
+        const avatar = await getAvatarFromIDB(currentParty, player.username);
         const div = document.createElement('div');
         div.className = 'player-item';
-        div.style.borderColor = isOnline ? '#00ff00' : '#8b4513';
         div.innerHTML = `
-            <img src="${player.avatar}" alt="${player.username}">
+            <img src="${avatar || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>'}" alt="${player.username}">
             <span>${player.username}</span>
-            <span style="color: ${isOnline ? '#00ff00' : '#888'}; margin-left: auto; font-size: 1.2em;">●</span>
         `;
         playerList.appendChild(div);
-    });
-    
-    // Mettre à jour les statistiques
-    updateStats();
-}
-
-// Mettre à jour les statistiques
-function updateStats() {
-    const users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
-    const players = users.filter(u => u.role === 'player');
-    const onlinePlayers = players.filter(p => p.isOnline);
-    
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
-    const tokens = gameState.tokens || [];
-    const playerTokens = tokens.filter(t => t.type === 'player');
-    const monsterTokens = tokens.filter(t => t.type === 'monster');
-    
-    const statsBox = document.getElementById('stats');
-    statsBox.innerHTML = `
-        <div style="color: #d4af37; font-size: 0.9em; line-height: 1.8;">
-            <p><strong style="color: #ffd700;">👥 Joueurs inscrits:</strong> ${players.length}</p>
-            <p><strong style="color: #00ff00;">🟢 En ligne:</strong> ${onlinePlayers.length}</p>
-            <p><strong style="color: #ffd700;">🗡️ Sur la carte:</strong> ${playerTokens.length}</p>
-            <p><strong style="color: #ff6b6b;">👹 Monstres:</strong> ${monsterTokens.length}</p>
-        </div>
-    `;
+    }
 }
 
 // Ajouter les joueurs à la carte
-function addPlayersToMap() {
-    const users = JSON.parse(localStorage.getItem('jdr_users') || '[]');
+async function addPlayersToMap() {
+    const usersKey = `jdr_users_${currentParty}`;
+    const users = JSON.parse(localStorage.getItem(usersKey) || '[]');
     const players = users.filter(u => u.role === 'player');
     
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    const stateKey = `jdr_game_state_${currentParty}`;
+    const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
     let tokens = gameState.tokens || [];
     
     // Retirer les anciens tokens de joueurs
     tokens = tokens.filter(t => t.type !== 'player');
     
-    // Ajouter les joueurs en ligne
-    players.forEach((player, index) => {
-        const x = 50 + (index * gridSize * 2);
-        const y = 50;
+    // Ajouter les joueurs avec leurs avatars depuis IndexedDB
+    for (let i = 0; i < players.length; i++) {
+        const player = players[i];
+        const avatar = await getAvatarFromIDB(currentParty, player.username);
         
-        tokens.push({
-            username: player.username,
-            avatar: player.avatar,
-            x: x,
-            y: y,
-            width: gridSize,
-            height: gridSize,
-            type: 'player'
-        });
-    });
+        if (avatar) {
+            const x = 50 + (i * gridSize * 2);
+            const y = 50;
+            
+            tokens.push({
+                username: player.username,
+                avatar: avatar,
+                x: x,
+                y: y,
+                width: gridSize,
+                height: gridSize,
+                type: 'player'
+            });
+        }
+    }
     
     gameState.tokens = tokens;
-    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+    localStorage.setItem(stateKey, JSON.stringify(gameState));
     drawGrid();
     
     alert(`${players.length} joueur(s) ajouté(s) à la carte!`);
+}
+
+// Ajouter mon personnage
+async function addMyCharacter() {
+    const avatar = await getAvatarFromIDB(currentParty, currentUser.username);
+    
+    if (!avatar) {
+        alert('Avatar non trouvé. Veuillez vous reconnecter.');
+        return;
+    }
+    
+    const stateKey = `jdr_game_state_${currentParty}`;
+    const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
+    let tokens = gameState.tokens || [];
+    
+    // Vérifier si le personnage est déjà sur la carte
+    const existing = tokens.find(t => t.username === currentUser.username && t.type === 'player');
+    if (existing) {
+        alert('Votre personnage est déjà sur la carte!');
+        return;
+    }
+    
+    // Ajouter le personnage
+    tokens.push({
+        username: currentUser.username,
+        avatar: avatar,
+        x: 50,
+        y: 50,
+        width: gridSize,
+        height: gridSize,
+        type: 'player'
+    });
+    
+    gameState.tokens = tokens;
+    localStorage.setItem(stateKey, JSON.stringify(gameState));
+    drawGrid();
+    
+    alert('Votre personnage a été ajouté à la carte!');
+}
+
+// Fonction pour réinitialiser les joueurs
+function resetPlayers() {
+    if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les joueurs de la partie ?')) {
+        const usersKey = `jdr_users_${currentParty}`;
+        localStorage.removeItem(usersKey);
+        
+        // Retirer aussi les tokens joueurs de la carte
+        const stateKey = `jdr_game_state_${currentParty}`;
+        const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
+        gameState.tokens = (gameState.tokens || []).filter(t => t.type !== 'player');
+        localStorage.setItem(stateKey, JSON.stringify(gameState));
+        
+        loadPlayers();
+        drawGrid();
+        alert('Tous les joueurs ont été réinitialisés!');
+    }
 }
 
 // Gestion du drag and drop
@@ -277,7 +340,8 @@ canvas.addEventListener('mousedown', (e) => {
 
     // Clic droit pour supprimer
     if (e.button === 2) {
-        const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+        const stateKey = `jdr_game_state_${currentParty}`;
+        const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
         let tokens = gameState.tokens || [];
         
         tokens = tokens.filter(token => {
@@ -286,13 +350,14 @@ canvas.addEventListener('mousedown', (e) => {
         });
         
         gameState.tokens = tokens;
-        localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+        localStorage.setItem(stateKey, JSON.stringify(gameState));
         drawGrid();
         return;
     }
 
     // Sélectionner un token existant
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    const stateKey = `jdr_game_state_${currentParty}`;
+    const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
     const tokens = gameState.tokens || [];
     
     for (let i = tokens.length - 1; i >= 0; i--) {
@@ -337,7 +402,8 @@ canvas.addEventListener('mouseup', (e) => {
         x = Math.round(x / gridSize) * gridSize;
         y = Math.round(y / gridSize) * gridSize;
 
-        const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+        const stateKey = `jdr_game_state_${currentParty}`;
+        const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
         let tokens = gameState.tokens || [];
         
         // Si c'est un token existant, le mettre à jour
@@ -358,7 +424,7 @@ canvas.addEventListener('mouseup', (e) => {
         });
 
         gameState.tokens = tokens;
-        localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+        localStorage.setItem(stateKey, JSON.stringify(gameState));
         
         draggingToken = null;
         dragOffset = { x: 0, y: 0 };
@@ -373,21 +439,23 @@ canvas.addEventListener('contextmenu', (e) => {
 // Changer la taille de grille
 document.getElementById('gridSize').addEventListener('change', (e) => {
     gridSize = parseInt(e.target.value);
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    const stateKey = `jdr_game_state_${currentParty}`;
+    const gameState = JSON.parse(localStorage.getItem(stateKey) || '{}');
     gameState.gridSize = gridSize;
-    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+    localStorage.setItem(stateKey, JSON.stringify(gameState));
     drawGrid();
 });
 
 // Réinitialiser la carte
 function clearMap() {
     if (confirm('Êtes-vous sûr de vouloir réinitialiser toute la carte ?')) {
+        const stateKey = `jdr_game_state_${currentParty}`;
         const gameState = {
             tokens: [],
             bgImage: null,
             gridSize: 50
         };
-        localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+        localStorage.setItem(stateKey, JSON.stringify(gameState));
         bgImage = null;
         gridSize = 50;
         document.getElementById('gridSize').value = 50;
@@ -399,7 +467,8 @@ function clearMap() {
 function logout() {
     if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
         sessionStorage.removeItem('jdr_current_user');
-        window.location.href = 'login.html';
+        sessionStorage.removeItem('jdr_current_party');
+        window.location.href = 'index.html';
     }
 }
 

@@ -20,6 +20,22 @@ function saveAvatarToIDB(party, username, avatar) {
     });
 }
 
+// Fonction pour récupérer l'avatar depuis IndexedDB
+function getAvatarFromIDB(party, username) {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(`jdr_avatars_${party}`, 1);
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+            const transaction = db.transaction(['avatars'], 'readonly');
+            const store = transaction.objectStore('avatars');
+            const getRequest = store.get(username);
+            getRequest.onsuccess = () => resolve(getRequest.result);
+            getRequest.onerror = () => reject(getRequest.error);
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
 // Fonction de connexion
 function handleLogin() {
     const party = document.getElementById('login-party').value.trim();
@@ -34,7 +50,7 @@ function handleLogin() {
         return;
     }
     
-    // Récupérer les utilisateurs de la partie
+    // Récupérer les utilisateurs de la partie (CORRECTION: avec le nom de la partie)
     const usersKey = `jdr_users_${party}`;
     let users = JSON.parse(localStorage.getItem(usersKey) || '[]');
     
@@ -56,7 +72,7 @@ function handleLogin() {
         
         // Sauvegarder l'avatar dans IndexedDB
         saveAvatarToIDB(party, username, uploadedAvatar).then(() => {
-            // Sauvegarder les utilisateurs
+            // Sauvegarder les utilisateurs avec le bon key
             localStorage.setItem(usersKey, JSON.stringify(users));
             
             // Sauvegarder la session
