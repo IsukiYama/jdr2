@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JDR - Game Master</title>
+    <link rel="stylesheet" href="gm-style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚔️ JDR - Maître du Jeu ⚔️</h1>
+            <div class="user-info">
+                <span id="username-display"></span>
+                <button class="btn-logout" onclick="logout()">Déconnexion</button>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>🗺️ Carte de fond:</label>
+                <input type="file" id="bgImage" accept="image/*">
+            </div>
+            
+            <div class="control-group">
+                <label>📏 Taille grille (ft):</label>
+                <input type="number" id="gridSize" value="50" min="10" max="200">
+            </div>
+            
+            <div class="control-group">
+                <label>👹 Monstres et PNJ (PNG):</label>
+                <input type="file" id="monsterImages" accept="image/png" multiple>
+            </div>
+            
+            <button class="btn-danger" onclick="clearMap()">🔥 Réinitialiser la carte</button>
+            <button class="btn-primary" onclick="addPlayersToMap()">👥 Ajouter les joueurs</button>
+        </div>
+
+        <div class="workspace">
+            <div class="sidebar">
+                <h3>🎭 Figurines disponibles</h3>
+                
+                <div class="section">
+                    <h4>👹 Monstres & PNJ</h4>
+                    <div id="monsterLibrary" class="token-library"></div>
+                </div>
+                
+                <div class="section">
+                    <h4>👥 Joueurs connectés</h4>
+                    <div id="playerList" class="player-list"></div>
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="gridCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="info">
+            <span class="dice-icon">🎲</span> 
+            <strong>Guide du Maître:</strong> 
+            Chargez votre carte, ajoutez vos monstres depuis la bibliothèque, et ajoutez les joueurs sur le terrain. 
+            Glissez-déposez pour positionner. Clic droit pour retirer un token.
+        </div>
+    </div>
+
+    <script src="gm.js"></script>
+</body>
+</html>

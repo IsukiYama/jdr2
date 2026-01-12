@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JDR - Joueur</title>
+    <link rel="stylesheet" href="player-style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚔️ JDR - Mode Joueur ⚔️</h1>
+            <div class="user-info">
+                <span id="username-display"></span>
+                <button class="btn-logout" onclick="logout()">Déconnexion</button>
+            </div>
+        </div>
+        
+        <div class="workspace">
+            <div class="sidebar">
+                <h3>🗡️ Votre Personnage</h3>
+                <div id="player-avatar"></div>
+                <div class="info-box">
+                    <p>💡 Déplacez votre figurine en cliquant dessus puis en cliquant sur la case de destination.</p>
+                    <p>🚫 Vous ne pouvez déplacer que votre propre personnage.</p>
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="gridCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button onclick="refreshMap()">🔄 Actualiser la carte</button>
+            <div class="connection-status">
+                <span id="status-indicator">●</span>
+                <span id="status-text">Connecté</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="player.js"></script>
+</body>
+</html>
