@@ -362,6 +362,15 @@ function clearMap() {
     }
 }
 
+// Réinitialiser les joueurs
+function resetPlayers() {
+    if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les joueurs ? Cela supprimera tous les personnages.')) {
+        localStorage.removeItem('jdr_users');
+        document.getElementById('playerList').innerHTML = '';
+        alert('Joueurs réinitialisés.');
+    }
+}
+
 // Déconnexion
 function logout() {
     if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
