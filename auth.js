@@ -39,7 +39,18 @@ function handleLogin() {
             user.avatar = uploadedAvatar;
         }
         
-        localStorage.setItem(usersKey, JSON.stringify(users));
+        try {
+            localStorage.setItem(usersKey, JSON.stringify(users));
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                alert('Quota de stockage dépassé. Utilisez des images PNG plus petites.');
+                // Supprimer les avatars pour économiser de l'espace
+                users.forEach(u => delete u.avatar);
+                localStorage.setItem(usersKey, JSON.stringify(users));
+            } else {
+                throw e;
+            }
+        }
         
         // Sauvegarder la session
         sessionStorage.setItem('jdr_current_user', JSON.stringify(user));
