@@ -1,18 +1,12 @@
 // Vérifier l'authentification
 const currentUser = JSON.parse(sessionStorage.getItem('jdr_current_user'));
 const currentParty = sessionStorage.getItem('jdr_current_party');
-if (!currentUser || currentUser.role !== 'gm' || !currentParty) {
+if (!currentUser || !currentParty) {
     window.location.href = 'index.html';
 }
 
-// Afficher les informations du GM
-document.getElementById('username-display').textContent = `🎭 ${currentUser.username} (${currentUser.role === 'gm' ? 'GM' : 'Joueur'})`;
-
-// Masquer les contrôles selon le rôle
-if (currentUser.role === 'player') {
-    document.querySelector('.controls').style.display = 'none';
-    document.getElementById('playerControls').style.display = 'block';
-}
+// Afficher les informations de l'utilisateur
+document.getElementById('username-display').textContent = `🎭 ${currentUser.username}`;
 
 // Fonction pour récupérer l'avatar depuis IndexedDB
 function getAvatarFromIDB(party, username) {
@@ -222,19 +216,18 @@ function addMonsterToLibrary(img, src, name) {
 // Charger et afficher les joueurs
 async function loadPlayers() {
     const users = JSON.parse(localStorage.getItem(`jdr_users_${currentParty}`) || '[]');
-    const players = users.filter(u => u.role === 'player');
     
     const playerList = document.getElementById('playerList');
     playerList.innerHTML = '';
     
-    for (const player of players) {
+    for (const user of users) {
         try {
-            const avatar = await getAvatarFromIDB(currentParty, player.username) || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='; // transparent pixel
+            const avatar = await getAvatarFromIDB(currentParty, user.username) || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='; // transparent pixel
             const div = document.createElement('div');
             div.className = 'player-item';
             div.innerHTML = `
-                <img src="${avatar}" alt="${player.username}">
-                <span>${player.username}</span>
+                <img src="${avatar}" alt="${user.username}">
+                <span>${user.username}</span>
             `;
             playerList.appendChild(div);
         } catch (e) {
@@ -257,7 +250,6 @@ function addPlayersToMap() {
 // Ajouter les joueurs à la carte
 async function addPlayersToMap() {
     const users = JSON.parse(localStorage.getItem(`jdr_users_${currentParty}`) || '[]');
-    const players = users.filter(u => u.role === 'player');
     
     const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
     let tokens = gameState.tokens || [];
@@ -266,15 +258,15 @@ async function addPlayersToMap() {
     tokens = tokens.filter(t => t.type !== 'player');
     
     // Ajouter les joueurs en ligne
-    for (let index = 0; index < players.length; index++) {
-        const player = players[index];
+    for (let index = 0; index < users.length; index++) {
+        const user = users[index];
         const x = 50 + (index * gridSize * 2);
         const y = 50;
         
         try {
-            const avatar = await getAvatarFromIDB(currentParty, player.username) || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+            const avatar = await getAvatarFromIDB(currentParty, user.username) || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
             tokens.push({
-                username: player.username,
+                username: user.username,
                 avatar: avatar,
                 x: x,
                 y: y,
@@ -291,7 +283,7 @@ async function addPlayersToMap() {
     localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
     drawGrid();
     
-    alert(`${players.length} joueur(s) ajouté(s) à la carte!`);
+    alert(`${users.length} joueur(s) ajouté(s) à la carte!`);
 }
 
 // Ajouter mon personnage (pour joueurs)

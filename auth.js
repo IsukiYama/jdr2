@@ -42,13 +42,12 @@ function getAvatarFromIDB(party, username) {
 function handleLogin() {
     const party = document.getElementById('login-party').value.trim();
     const username = document.getElementById('login-username').value.trim();
-    const role = document.getElementById('login-role').value;
     const avatarFile = document.getElementById('login-avatar').files[0];
     const errorDiv = document.getElementById('login-error');
     
     errorDiv.classList.remove('show');
     
-    if (!party || !username || !role || !avatarFile) {
+    if (!party || !username || !avatarFile) {
         showError('login-error', 'Veuillez remplir tous les champs');
         return;
     }
@@ -61,13 +60,13 @@ function handleLogin() {
     const reader = new FileReader();
     reader.onload = (event) => {
         const uploadedAvatar = event.target.result;
-        let user = users.find(u => u.username === username && u.role === role);
+        let user = users.find(u => u.username === username);
         
         if (!user) {
             // Créer le personnage si non trouvé
             user = {
                 username: username,
-                role: role,
+                role: 'player',
                 createdAt: new Date().toISOString()
             };
             users.push(user);
