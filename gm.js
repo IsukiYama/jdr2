@@ -31,13 +31,20 @@ const ctx = canvas.getContext('2d');
 
 // Redimensionner le canvas
 function resizeCanvas() {
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    drawGrid();
+    // Attendre que le layout soit complet
+    setTimeout(() => {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        console.log('Canvas size:', canvas.width, canvas.height);
+        drawGrid();
+    }, 100);
 }
 
 window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+window.addEventListener('load', () => {
+    resizeCanvas();
+    loadGameState();
+});
 
 let bgImage = null;
 let gridSize = 50;
@@ -75,7 +82,7 @@ function loadGameState() {
     }
     
     // Charger la taille de grille
-    gridSize = gameState.gridSize;
+    gridSize = Math.max(10, gameState.gridSize || 50);
     document.getElementById('gridSize').value = gridSize;
     
     drawGrid();
@@ -98,15 +105,15 @@ function drawGrid() {
         ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
     } else {
         const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, '#3a2a1a');
-        gradient.addColorStop(1, '#2a1a0a');
+        gradient.addColorStop(0, '#4a3a2a');
+        gradient.addColorStop(1, '#3a2a1a');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     // Grille
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.8)';
+    ctx.lineWidth = 1;
 
     for (let x = 0; x <= canvas.width; x += gridSize) {
         ctx.beginPath();
@@ -427,11 +434,14 @@ canvas.addEventListener('contextmenu', (e) => {
 
 // Changer la taille de grille
 document.getElementById('gridSize').addEventListener('change', (e) => {
-    gridSize = parseInt(e.target.value);
-    const gameState = JSON.parse(localStorage.getItem('jdr_game_state') || '{}');
+    gridSize = Math.max(10, parseInt(e.target.value) || 50);
+    document.getElementById('gridSize').value = gridSize;
+    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
     gameState.gridSize = gridSize;
-    localStorage.setItem('jdr_game_state', JSON.stringify(gameState));
+    localStorage.setItem(`jdr_game_state_${currentParty}`, JSON.stringify(gameState));
     drawGrid();
+    // Diffuser la mise à jour
+    broadcastChannel.postMessage({ type: 'gameStateUpdate', data: gameState });
 });
 
 // Réinitialiser la carte
