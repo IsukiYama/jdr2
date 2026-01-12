@@ -28,19 +28,16 @@ function handleLogin() {
             user = {
                 username: username,
                 role: role,
-                avatar: uploadedAvatar,
                 createdAt: new Date().toISOString()
             };
             users.push(user);
-        } else {
-            // Mettre à jour la figurine
-            user.avatar = uploadedAvatar;
         }
         
         localStorage.setItem('jdr_users', JSON.stringify(users));
         
-        // Sauvegarder la session
-        sessionStorage.setItem('jdr_current_user', JSON.stringify(user));
+        // Sauvegarder la session avec l'avatar
+        const sessionUser = { ...user, avatar: uploadedAvatar };
+        sessionStorage.setItem('jdr_current_user', JSON.stringify(sessionUser));
         
         // Rediriger vers la page appropriée
         if (user.role === 'gm') {
