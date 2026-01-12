@@ -38,26 +38,6 @@ const ctx = canvas.getContext('2d');
 let bgImage = null;
 let gridSize = 50;
 
-// Redimensionner le canvas
-function resizeCanvas() {
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    drawGrid();
-}
-
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
-
-// Charger l'état initial
-const initialGameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
-if (initialGameState.bgImage) {
-    bgImage = new Image();
-    bgImage.onload = () => drawGrid();
-    bgImage.src = initialGameState.bgImage;
-} else {
-    drawGrid();
-}
-
 // Dessiner la grille et les tokens
 function drawGrid() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -66,6 +46,10 @@ function drawGrid() {
     if (bgImage) {
         ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
     }
+    
+    // Récupérer la taille de grille
+    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
+    gridSize = gameState.gridSize || 50;
     
     // Dessiner la grille
     ctx.strokeStyle = '#ddd';
@@ -84,7 +68,6 @@ function drawGrid() {
     }
     
     // Dessiner tous les tokens
-    const gameState = JSON.parse(localStorage.getItem(`jdr_game_state_${currentParty}`) || '{}');
     const tokens = gameState.tokens || [];
     
     tokens.forEach(token => {
