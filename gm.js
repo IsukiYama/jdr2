@@ -28,8 +28,16 @@ function getAvatarFromIDB(party, username) {
 const broadcastChannel = new BroadcastChannel(`jdr_party_${currentParty}`);
 const canvas = document.getElementById('gridCanvas');
 const ctx = canvas.getContext('2d');
-canvas.width = 900;
-canvas.height = 650;
+
+// Redimensionner le canvas
+function resizeCanvas() {
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    drawGrid();
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
 let bgImage = null;
 let gridSize = 50;
